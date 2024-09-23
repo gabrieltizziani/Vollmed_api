@@ -8,8 +8,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-
+import org.springframework.web.util.UriComponentsBuilder;
 
 
 @RestController
@@ -20,21 +19,25 @@ public class MedicoController {
 
     @PostMapping
     @Transactional //transação ativa no bd
-    public ResponseEntity cadastrar(@RequestBody @Valid DadosCadastroMedico dados) {
-        medicoRepository.save(new Medico(dados));
-        return ResponseEntity.ok().build();
+    public ResponseEntity cadastrar(@RequestBody @Valid DadosCadastroMedico dados, UriComponentsBuilder uriBuilder) {
+        var medico = new Medico(dados);
+        medicoRepository.save(medico);
+        var uri = uriBuilder.path("/medicos/{id}").buildAndExpand(medico.getId()).toUri();
+        return ResponseEntity.created(uri).body(new DadosDetalhamentoMedico(medico));
     }
 
     @GetMapping
-    public Page<DadosListagemMedico> listar(@PageableDefault(size = 10, sort = {"nome"}) Pageable pageable) { //pageable para trabalhar com a paginação, ex: quero apenas 10 medicos por pagina
-        return medicoRepository.findAllByAtivoTrue(pageable).map(DadosListagemMedico::new);
+    public ResponseEntity<Page<DadosListagemMedico>> listar(@PageableDefault(size = 10, sort = {"nome"}) Pageable pageable) { //pageable para trabalhar com a paginação, ex: quero apenas 10 medicos por pagina
+        var page = medicoRepository.findAllByAtivoTrue(pageable).map(DadosListagemMedico::new);
+        return ResponseEntity.ok(page);
     }
 
     @PutMapping
     @Transactional
-    public void atualizar(@RequestBody @Valid DadosAtualizarMedico dados) {
+    public ResponseEntity atualizar(@RequestBody @Valid DadosAtualizarMedico dados) {
         var medico = medicoRepository.getReferenceById(dados.id());
         medico.atualizarInformacoes(dados);
+        return ResponseEntity.ok(new DadosDetalhamentoMedico(medico));
     }
 
 //    @DeleteMapping("/{id}") ESSE CASO É PARA EXCLUIR DE UMA VEZ DO BANCO DE DADOS.
@@ -46,9 +49,10 @@ public class MedicoController {
 
     @DeleteMapping("/{id}")
     @Transactional
-    public void excluir(@PathVariable Long id) {
+    public ResponseEntity excluir(@PathVariable Long id) {
         var medico = medicoRepository.getReferenceById(id);
         medico.excluir();
+        return ResponseEntity.noContent().build();
     }
 
 
